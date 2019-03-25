@@ -44,9 +44,7 @@ Gamma=          Diode quality factor, normally between 1 and 2
 Ncs        =        Number of cells in series.
 Tc        =        Effective temperature of the cells [Kelvin]
 
-'''
 
-'''
 PVLIB Parameters
     ----------
     effective_irradiance : numeric
@@ -106,12 +104,12 @@ def _parse_tree(lines):
         yield level, match.group('name'), (stack[level - 1] if level else None)
 
 #for PVSYST files parsing to DICT. Takes list of group keys and return dict
-def _text_to_dict(raw, group_keys):
+def _text_to_dict(m, group_keys):
     data = dict()
     levels_temp = [None]*10  # temporary array to store current keys tree
 
-    # parse each line of raw string (PAN file)
-    for level, name, parent in _parse_tree(raw.split('\n')):
+    # parse each line of m string (PAN file)
+    for level, name, parent in _parse_tree(m.split('\n')):
         #try for line with no = sign i.e. End of we will continue
         try:
             key = re.split('=',name)[0]
@@ -151,36 +149,35 @@ def pan_to_module_param(path):
 
     #parse text file to nested dict based on pan_keys
     data = _text_to_dict(raw, pan_keys)
-    module_parameters = {}
-    raw = {}
+    m = {}
 
-    raw['manufacturer'] = (data['PVObject_=pvModule']['PVObject_Commercial=pvCommercial']['Manufacturer'])
-    raw['module_name'] = (data['PVObject_=pvModule']['PVObject_Commercial=pvCommercial']['Model'])
-    raw['Technol'] = (data['PVObject_=pvModule']['Technol'])
+    m['manufacturer'] = (data['PVObject_=pvModule']['PVObject_Commercial=pvCommercial']['Manufacturer'])
+    m['module_name'] = (data['PVObject_=pvModule']['PVObject_Commercial=pvCommercial']['Model'])
+    m['Technol'] = (data['PVObject_=pvModule']['Technol'])
 
-    raw['CellsInS'] = int(data['PVObject_=pvModule']['NCelS'])
-    raw['CellsInP'] = int(data['PVObject_=pvModule']['NCelP'])
-    raw['GRef'] = float(data['PVObject_=pvModule']['GRef'])
-    raw['TRef'] = float(data['PVObject_=pvModule']['TRef'])
-    raw['Pmpp'] = float(data['PVObject_=pvModule']['PNom'])
-    raw['Isc'] = float(data['PVObject_=pvModule']['Isc'])
-    raw['Voc'] = float(data['PVObject_=pvModule']['Voc'])
-    raw['Impp'] = float(data['PVObject_=pvModule']['Imp'])
-    raw['Vmpp'] = float(data['PVObject_=pvModule']['Vmp'])
+    m['CellsInS'] = int(data['PVObject_=pvModule']['NCelS'])
+    m['CellsInP'] = int(data['PVObject_=pvModule']['NCelP'])
+    m['GRef'] = float(data['PVObject_=pvModule']['GRef'])
+    m['TRef'] = float(data['PVObject_=pvModule']['TRef'])
+    m['Pmpp'] = float(data['PVObject_=pvModule']['PNom'])
+    m['Isc'] = float(data['PVObject_=pvModule']['Isc'])
+    m['Voc'] = float(data['PVObject_=pvModule']['Voc'])
+    m['Impp'] = float(data['PVObject_=pvModule']['Imp'])
+    m['Vmpp'] = float(data['PVObject_=pvModule']['Vmp'])
 
-    raw['mIsc_percent'] = (float(data['PVObject_=pvModule']['muISC'])/1000/raw['Isc'])*100 #PAN stored in mA/C,convert to %/C
-    raw['mVoc_percent'] = (float(data['PVObject_=pvModule']['muVocSpec'])/1000/raw['Voc'])*100 # PAN stored in mV/C, convert to %/C
+    m['mIsc_percent'] = (float(data['PVObject_=pvModule']['muISC'])/1000/m['Isc'])*100 #PAN stored in mA/C,convert to %/C
+    m['mVoc_percent'] = (float(data['PVObject_=pvModule']['muVocSpec'])/1000/m['Voc'])*100 # PAN stored in mV/C, convert to %/C
 
-    raw['mIsc'] = float(data['PVObject_=pvModule']['muISC'])/1000  # convert to A/C
-    raw['mVoc'] = float(data['PVObject_=pvModule']['muVocSpec'])/1000  # convert to V/C
+    m['mIsc'] = float(data['PVObject_=pvModule']['muISC'])/1000  # convert to A/C
+    m['mVoc'] = float(data['PVObject_=pvModule']['muVocSpec'])/1000  # convert to V/C
 
-    raw['mPmpp'] = float(data['PVObject_=pvModule']['muPmpReq'])
-    raw['Rshunt'] = float(data['PVObject_=pvModule']['RShunt'])
-    raw['Rsh 0'] = float(data['PVObject_=pvModule']['Rp_0'])
-    raw['Rshexp'] = float(data['PVObject_=pvModule']['Rp_Exp'])
-    raw['Rserie'] = float(data['PVObject_=pvModule']['RSerie'])
-    raw['Gamma'] = float(data['PVObject_=pvModule']['Gamma'])
-    raw['muGamma'] = float(data['PVObject_=pvModule']['muGamma'])
+    m['mPmpp'] = float(data['PVObject_=pvModule']['muPmpReq'])
+    m['Rshunt'] = float(data['PVObject_=pvModule']['RShunt'])
+    m['Rsh 0'] = float(data['PVObject_=pvModule']['Rp_0'])
+    m['Rshexp'] = float(data['PVObject_=pvModule']['Rp_Exp'])
+    m['Rserie'] = float(data['PVObject_=pvModule']['RSerie'])
+    m['Gamma'] = float(data['PVObject_=pvModule']['Gamma'])
+    m['muGamma'] = float(data['PVObject_=pvModule']['muGamma'])
 
     #constants
     k = 1.38064852e-23 #Boltzmann’s constant (J/K)
@@ -191,31 +188,31 @@ def pan_to_module_param(path):
 
     #solve IoRef for Voc
     I = 0
-    V = raw['Voc']
-    IoRefVoc = -((I+(V + I*raw['Rserie'])/\
-                raw['Rshunt'])-raw['Isc'])/\
-                (np.exp(q*(V+I*raw['Rserie'])/\
-                (raw['CellsInS']*raw['Gamma']*k*Tc))-1)
+    V = m['Voc']
+    IoRefVoc = -((I+(V + I*m['Rserie'])/\
+                m['Rshunt'])-m['Isc'])/\
+                (np.exp(q*(V+I*m['Rserie'])/\
+                (m['CellsInS']*m['Gamma']*k*Tc))-1)
 
     #solve IoRef for Pmax
-    I = raw['Impp']
-    V = raw['Vmpp']
-    IoRefPmp = -((I+(V + I*raw['Rserie'])/\
-                raw['Rshunt'])-raw['Isc'])/\
-                (np.exp(q*(V+I*raw['Rserie'])/\
-                (raw['CellsInS']*raw['Gamma']*k*Tc))-1)
+    I = m['Impp']
+    V = m['Vmpp']
+    IoRefPmp = -((I+(V + I*m['Rserie'])/\
+                m['Rshunt'])-m['Isc'])/\
+                (np.exp(q*(V+I*m['Rserie'])/\
+                (m['CellsInS']*m['Gamma']*k*Tc))-1)
 
+    # pvlib mpodule paramters
+    m['gamma_ref'] = m['Gamma']
+    m['mu_gamma'] = m['muGamma']
+    m['I_L_ref'] = m['Isc']
+    m['I_o_ref'] = IoRefPmp  # Using Pmp curve fitting, TODO; check CASSYS
+    m['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
+    m['R_sh_ref'] = m['Rshunt']
+    m['R_sh_0'] = m['Rsh 0']
+    m['R_s'] = m['Rserie']
+    m['R_sh_exp'] = m['Rshexp']
+    m['cells_in_series'] = m['CellsInS']
+    m['alpha_sc'] = m['mIsc']  # A/C
 
-    module_parameters['gamma_ref'] = raw['Gamma']
-    module_parameters['mu_gamma'] = raw['muGamma']
-    module_parameters['I_L_ref'] = raw['Isc']
-    module_parameters['I_o_ref'] = IoRefPmp  # Using Pmp curve fitting, TODO; check CASSYS
-    module_parameters['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
-    module_parameters['R_sh_ref'] = raw['Rshunt']
-    module_parameters['R_sh_0'] = raw['Rsh 0']
-    module_parameters['R_s'] = raw['Rserie']
-    module_parameters['R_sh_exp'] = raw['Rshexp']
-    module_parameters['cells_in_series'] = raw['CellsInS']
-    module_parameters['alpha_sc'] = raw['mIsc']  # A/C
-
-    return raw, module_parameters
+    return m
