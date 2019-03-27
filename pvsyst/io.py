@@ -17,72 +17,11 @@ import json, struct
 import numpy as np
 
 import logging
-logger = logging.getLogger('spam_application')
-logger.setLevel(logging.DEBUG)
+logging.addLevelName(5,"VERBOSE")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('pvsyst_io')
 
-
-'''
-# PVSYST one diode module paramaeters
-#I=Iph-Io*(np.exp(q*(V+I*Rs)/(Ncs·Gamma·k·Tc))-1)-(V + I*Rs)/Rsh
-
-#PVSYST one diode equation
-http://files.pvsyst.com/help/index.html?pvcell_reversechar.htm
-
-I  =  Iph  -   Io  [ exp  (q · (V+I·Rs) / ( Ncs·Gamma·k·Tc) ) - 1 ]    -    (V + I·Rs) / Rsh
-
-with :
-I        =        Current supplied by the module  [A].
-V        =        Voltage at the terminals of the module  [V].
-Iph        =        Photocurrent [A], proportional to the irradiance G,  with a correction as function of  Tc  (see below).
-ID        =        Diode current, is the product   Io  ·  [exp(     ) -1].
-Io        =        inverse saturation current, depending on the temperature [A]  (see expression below).
-Rs        =        Series resistance [ohm].
-Rsh        =        Shunt resistance [ohm].
-q        =        Charge of the electron  =  1.602·E-19 Coulomb
-k        =        Bolzmann's constant =  1.381 E-23  J/K.
-Gamma=          Diode quality factor, normally between 1 and 2
-Ncs        =        Number of cells in series.
-Tc        =        Effective temperature of the cells [Kelvin]
-
-
-PVLIB Parameters
-    ----------
-    effective_irradiance : numeric
-        The irradiance (W/m2) that is converted to photocurrent.
-    temp_cell : numeric
-        The average cell temperature of cells within a module in C.
-    alpha_sc : float
-        The short-circuit current temperature coefficient of the
-        module in units of A/C.
-    gamma_ref : float
-        The diode ideality factor
-    mu_gamma : float
-        The temperature coefficient for the diode ideality factor, 1/K
-    I_L_ref : float
-        The light-generated current (or photocurrent) at reference conditions,
-        in amperes.
-    I_o_ref : float
-        The dark or diode reverse saturation current at reference conditions,
-        in amperes.
-    R_sh_ref : float
-        The shunt resistance at reference conditions, in ohms.
-    R_sh_0 : float
-        The shunt resistance at zero irradiance conditions, in ohms.
-    R_s : float
-        The series resistance at reference conditions, in ohms.
-    cells_in_series : integer
-        The number of cells connected in series.
-    R_sh_exp : float
-        The exponent in the equation for shunt resistance, unitless. Defaults
-        to 5.5.
-    EgRef : float
-        The energy bandgap at reference temperature in units of eV.
-        1.121 eV for crystalline silicon. EgRef must be >0.
-    irrad_ref : float (optional, default=1000)
-        Reference irradiance in W/m^2.
-    temp_ref : float (optional, default=25)
-        Reference cell temperature in C.
-'''
+from pprint import pprint, pformat
 
 #parse indented text and yield level, parent and value
 def _parse_tree(lines):
@@ -104,7 +43,7 @@ def _parse_tree(lines):
         yield level, match.group('name'), (stack[level - 1] if level else None)
 
 #for PVSYST files parsing to DICT. Takes list of group keys and return dict
-def _text_to_dict(m, group_keys):
+def _text_to_dict(m, sections):
     data = dict()
     levels_temp = [None]*10  # temporary array to store current keys tree
 
@@ -114,70 +53,98 @@ def _text_to_dict(m, group_keys):
         try:
             key = re.split('=',name)[0]
             value = re.split('=',name)[1]
-            logger.debug('{}{}:{} [l{},p{}]'.format(' ' * (2 * level), key, value, level, parent))
+            logger.log(5, '{}{}:{} [l{},p{}]'.format(' ' * (2 * level), key, value, level, parent))
         except:
             continue
 
         # Create group keys for current level
-        if name.startswith(tuple(group_keys)):
+        # check if key if in sections dict
+        group = [v for k, v in sections.items() if key == k]
+        if group:
             if level == 0:
-                data[name] = dict()
-                levels_temp[0] = data[name]
+                data[group[0]] = dict()
+                levels_temp[0] = data[group[0]]
+                logger.log(5, 'set levels_temp[0] to data[{}]'.format(name))
 
-                logger.debug('set levels_temp[0] to data[{}]'.format(name))
-                logger.debug(data)
             else:
-                levels_temp[level - 1][name] = dict()
-                levels_temp[level] = levels_temp[level - 1][name]
-                logger.debug('set levels_temp[{}] to data[{}]'.format(level, name))
-                logger.debug(data)
+                levels_temp[level - 1][group[0]] = dict()
+                levels_temp[level] = levels_temp[level - 1][group[0]]
+                logger.log(5, 'set levels_temp[{}] to data[{}]'.format(level, group[0]))
 
         else:
             levels_temp[level-1][key] = value
+
 
     return data
 
 # read PAN file and return dict of module paramters for PVLIB
 def pan_to_module_param(path):
 
-    #group keys of PVSYST 6.7.6
-    pan_keys =['PVObject_=pvModule','PVObject_Commercial=pvCommercial','PVObject_IAM=pvIAM','IAMProfile=TCubicProfile','Remarks, Count', 'OperPoints, list of=3 tOperPoint']
+    # group keys of PVSYST 6.7.6
+    # key is the start value to identify
+    # vlaue is the dict key to be used
+    pan_sections ={'PVObject_': 'pvModule',
+                'PVObject_Commercial': 'pvCommercial',
+                'PVObject_IAM': 'pvIAM',
+                'IAMProfile': 'TCubicProfile',
+                'Remarks, Count': 'Remarks',
+                'OperPoints, list of': 'tOperPoint'}
 
     #open file
     with open(path,'r') as file:
         raw = file.read()
 
     #parse text file to nested dict based on pan_keys
-    data = _text_to_dict(raw, pan_keys)
+    data = _text_to_dict(raw, pan_sections)
+    logger.debug(pformat(data))
+
     m = {}
+    m['manufacturer'] = (data['pvModule']['pvCommercial']['Manufacturer'])
+    m['module_name'] = (data['pvModule']['pvCommercial']['Model'])
+    m['Technol'] = (data['pvModule']['Technol'])
 
-    m['manufacturer'] = (data['PVObject_=pvModule']['PVObject_Commercial=pvCommercial']['Manufacturer'])
-    m['module_name'] = (data['PVObject_=pvModule']['PVObject_Commercial=pvCommercial']['Model'])
-    m['Technol'] = (data['PVObject_=pvModule']['Technol'])
+    m['CellsInS'] = int(data['pvModule']['NCelS'])
+    m['CellsInP'] = int(data['pvModule']['NCelP'])
+    m['GRef'] = float(data['pvModule']['GRef'])
+    m['TRef'] = float(data['pvModule']['TRef'])
+    m['Pmpp'] = float(data['pvModule']['PNom'])
+    m['Isc'] = float(data['pvModule']['Isc'])
+    m['Voc'] = float(data['pvModule']['Voc'])
+    m['Impp'] = float(data['pvModule']['Imp'])
+    m['Vmpp'] = float(data['pvModule']['Vmp'])
 
-    m['CellsInS'] = int(data['PVObject_=pvModule']['NCelS'])
-    m['CellsInP'] = int(data['PVObject_=pvModule']['NCelP'])
-    m['GRef'] = float(data['PVObject_=pvModule']['GRef'])
-    m['TRef'] = float(data['PVObject_=pvModule']['TRef'])
-    m['Pmpp'] = float(data['PVObject_=pvModule']['PNom'])
-    m['Isc'] = float(data['PVObject_=pvModule']['Isc'])
-    m['Voc'] = float(data['PVObject_=pvModule']['Voc'])
-    m['Impp'] = float(data['PVObject_=pvModule']['Imp'])
-    m['Vmpp'] = float(data['PVObject_=pvModule']['Vmp'])
+    m['mIsc_percent'] = (float(data['pvModule']['muISC'])/1000/m['Isc'])*100 #PAN stored in mA/C,convert to %/C
+    m['mVoc_percent'] = (float(data['pvModule']['muVocSpec'])/1000/m['Voc'])*100 # PAN stored in mV/C, convert to %/C
 
-    m['mIsc_percent'] = (float(data['PVObject_=pvModule']['muISC'])/1000/m['Isc'])*100 #PAN stored in mA/C,convert to %/C
-    m['mVoc_percent'] = (float(data['PVObject_=pvModule']['muVocSpec'])/1000/m['Voc'])*100 # PAN stored in mV/C, convert to %/C
+    m['mIsc'] = float(data['pvModule']['muISC'])/1000  # convert to A/C
+    m['mVoc'] = float(data['pvModule']['muVocSpec'])/1000  # convert to V/C
 
-    m['mIsc'] = float(data['PVObject_=pvModule']['muISC'])/1000  # convert to A/C
-    m['mVoc'] = float(data['PVObject_=pvModule']['muVocSpec'])/1000  # convert to V/C
+    m['mPmpp'] = float(data['pvModule']['muPmpReq'])
+    m['Rshunt'] = float(data['pvModule']['RShunt'])
+    m['Rsh 0'] = float(data['pvModule']['Rp_0'])
+    m['Rshexp'] = float(data['pvModule']['Rp_Exp'])
+    m['Rserie'] = float(data['pvModule']['RSerie'])
+    m['Gamma'] = float(data['pvModule']['Gamma'])
+    m['muGamma'] = float(data['pvModule']['muGamma'])
 
-    m['mPmpp'] = float(data['PVObject_=pvModule']['muPmpReq'])
-    m['Rshunt'] = float(data['PVObject_=pvModule']['RShunt'])
-    m['Rsh 0'] = float(data['PVObject_=pvModule']['Rp_0'])
-    m['Rshexp'] = float(data['PVObject_=pvModule']['Rp_Exp'])
-    m['Rserie'] = float(data['PVObject_=pvModule']['RSerie'])
-    m['Gamma'] = float(data['PVObject_=pvModule']['Gamma'])
-    m['muGamma'] = float(data['PVObject_=pvModule']['muGamma'])
+    # IAM profile to ndarray
+    try:
+        if data['pvModule']['pvIAM']['IAMMode'] == 'UserProfile':
+            points = int(data['pvModule']['pvIAM']['NPtsEff'])
+            x = []
+            y = []
+            for n in range(points):
+                v = data['pvModule']['pvIAM']['Point_{}'.format(n)]
+                v.split(',')
+                x.append(float(v[0]))
+                y.append(float(v[1]))
+            m['IAM'] = np.array(x,y)
+    except:
+        logger.warning('IAM profile not found')
+        m['IAM'] = None
+
+
+
 
     #constants
     k = 1.38064852e-23 #Boltzmann’s constant (J/K)
