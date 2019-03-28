@@ -130,17 +130,18 @@ def pan_to_module_param(path):
     # IAM profile to ndarray
     try:
         if data['pvModule']['pvIAM']['IAMMode'] == 'UserProfile':
-            points = int(data['pvModule']['pvIAM']['NPtsEff'])
+            points = int(data['pvModule']['pvIAM']['TCubicProfile']['NPtsEff'])
             x = []
             y = []
             for n in range(points):
-                v = data['pvModule']['pvIAM']['Point_{}'.format(n)]
-                v.split(',')
+                v = data['pvModule']['pvIAM']['TCubicProfile']['Point_{}'.format(n+1)]
+                v = v.split(',')
                 x.append(float(v[0]))
                 y.append(float(v[1]))
-            m['IAM'] = np.array(x,y)
-    except:
+            m['IAM'] = np.array([x,y])
+    except Exception as e:
         logger.warning('IAM profile not found')
+        logger.log(5, e)
         m['IAM'] = None
 
 

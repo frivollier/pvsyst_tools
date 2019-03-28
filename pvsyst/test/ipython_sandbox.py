@@ -19,9 +19,25 @@ def test_io():
 
     import logging
     logger = logging.getLogger('pvsyst_io')
-    logger.setLevel(10)
+    logger.setLevel(5)  # 5 for Verbose 10 for Debug
 
     m = pvsyst.pan_to_module_param(path)
     # df = pd.DataFrame(columns=m.keys(),data = [m.values()])
 
     pp.pprint(m)
+
+    d = '60.0,0.97000'
+    v = d.split(',')
+    import numpy as np
+    float(v[0])
+    x = []
+    y = []
+    for n in range(9):
+        v = d
+        v = v.split(',')
+        x.append(float(v[0]))
+        y.append(float(v[1]))
+    x
+    m['IAM'] = np.array([x,y])
+    m['IAM']
+    m['IAM'][1]
