@@ -1,6 +1,7 @@
 %load_ext autoreload
 %autoreload 2
-import os, sys
+import os, sys;
+
 import pprint
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -15,7 +16,12 @@ def test_io():
     import pvsyst
     print('pvsyst module path: {}'.format(pvsyst.__file__))
 
-    path = os.path.join(os.path.dirname(pvsyst.__file__), r'test/data/CS3U-365P_MIX_CSIHE_EXT_V6_70_1500V_2018Q2.PAN')
+    pan_file = 'check_Canadian_CS3U_350P.PAN'
+    pan_file = 'CS3U-365P_MIX_CSIHE_EXT_V6_70_1500V_2018Q2.PAN'
+
+    path = os.path.join(os.path.dirname(pvsyst.__file__), r'test/data/', pan_file)
+
+
 
     import logging
     logger = logging.getLogger('pvsyst_io')

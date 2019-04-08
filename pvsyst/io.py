@@ -1,15 +1,6 @@
 '''
 @author: frederic rivollier
-    2018.10.28 Initial draft
-    2019.03.23 Clean up
 
-Pre-requisites:
-
-Overview:
-
-Revision history
-    0.0.1:  Initial stable release
-    0.1.0:  Simplifyed logic
 '''
 
 import re, sys, os
@@ -98,6 +89,10 @@ def pan_to_module_param(path):
     data = _text_to_dict(raw, pan_sections)
     logger.debug(pformat(data))
 
+    '''
+    List of PVSYST paramters and units:
+    http://files.pvsyst.com/help/pvmodule_parametersummary.htm
+    '''
     m = {}
     m['manufacturer'] = (data['pvModule']['pvCommercial']['Manufacturer'])
     m['module_name'] = (data['pvModule']['pvCommercial']['Model'])
@@ -117,7 +112,7 @@ def pan_to_module_param(path):
     m['mVoc_percent'] = (float(data['pvModule']['muVocSpec'])/1000/m['Voc'])*100 # PAN stored in mV/C, convert to %/C
 
     m['mIsc'] = float(data['pvModule']['muISC'])/1000  # convert to A/C
-    m['mVoc'] = float(data['pvModule']['muVocSpec'])/1000  # convert to V/C
+    m['mVocSpec'] = float(data['pvModule']['muVocSpec'])/1000  # convert to V/C
 
     m['mPmpp'] = float(data['pvModule']['muPmpReq'])
     m['Rshunt'] = float(data['pvModule']['RShunt'])
@@ -128,6 +123,43 @@ def pan_to_module_param(path):
     m['muGamma'] = float(data['pvModule']['muGamma'])
 
     # IAM profile to ndarray
+
+    # Options:
+    # FrontSurface=fsNormalGlass
+    # FrontSurface=fsARCoating
+    # if not defined FrontSurface key will not exist
+    # FrontSurface=fsPlastic
+    # FrontSurface=fsTextured
+
+    '''
+    # if Ashre  PVObject_IAM=pvIAM / IAMMode=Ashrae
+      PVObject_IAM=pvIAM
+        Flags=$00
+        IAMMode=Ashrae
+        B0_IAM=0.075
+      End of PVObject pvIAM
+
+     # if user define FrontSurface key will not exist but  PVObject_IAM=pvIAM
+     PVObject_IAM=pvIAM
+        Flags=$00
+        IAMMode=UserProfile
+        IAMProfile=TCubicProfile
+          NPtsMax=9
+          NPtsEff=9
+          LastCompile=$B18D
+          Mode=3
+          Point_1=10.0,0.99900
+          Point_2=20.0,0.99900
+          Point_3=30.0,0.99500
+          Point_4=40.0,0.99200
+          Point_5=50.0,0.98600
+          Point_6=60.0,0.97000
+          Point_7=70.0,0.91700
+          Point_8=80.0,0.76300
+          Point_9=90.0,0.00000
+        End of TCubicProfile
+      End of PVObject pvIAM
+  '''
     try:
         if data['pvModule']['pvIAM']['IAMMode'] == 'UserProfile':
             points = int(data['pvModule']['pvIAM']['TCubicProfile']['NPtsEff'])
@@ -144,7 +176,18 @@ def pan_to_module_param(path):
         logger.log(5, e)
         m['IAM'] = None
 
+    '''
+    low irradiance
+    OperPoints, list of=6 tOperPoint
+        Point_1=False,800,25.0,0.00,0.00,0.000,0.000,0.00
+        Point_2=False,600,25.0,0.00,0.00,0.000,0.000,0.00
+        Point_3=False,400,25.0,0.00,0.00,0.000,0.000,0.00
+        Point_4=False,200,25.0,0.00,0.00,0.000,0.000,0.00
+        Point_5=False,200,25.0,0.00,0.00,0.000,0.000,0.00
+        Point_6=False,200,25.0,0.00,0.00,0.000,0.000,0.00
+      End of List OperPoints
 
+    '''
 
 
     #constants
@@ -154,27 +197,49 @@ def pan_to_module_param(path):
     GRef = 1000
     Tc = 25 + kelvin0 #Deg Kelvin
 
-    #solve IoRef for Voc
-    I = 0
-    V = m['Voc']
-    IoRefVoc = -((I+(V + I*m['Rserie'])/\
+    '''
+    solve IoRef for Pmp
+    Using Voc to solve reverse saturation current IoRef based on
+    reference: Mermoud, Lejeune (2010): Performance Assessment of a Simulation Model for PV Modules of Any Available Technology.
+    Proc 25th European Photovoltaic Solar Energy Conference –Valencia, Spain, 6-10 September 2010
+
+    #PVSYST one diode equation
+    http://files.pvsyst.com/help/index.html?pvcell_reversechar.htm
+
+    I  =  Iph  -   Io  [ exp  (q · (V+I·Rs) / ( Ncs·Gamma·k·Tc) ) - 1 ]    -    (V + I·Rs) / Rsh
+
+    with :
+    I        =        Current supplied by the module  [A].
+    V        =        Voltage at the terminals of the module  [V].
+    Iph   [Isc]     =        Photocurrent [A], proportional to the irradiance G,  with a correction as function of  Tc  (see below).
+    ID        =        Diode current, is the product   Io  ·  [exp(     ) -1].
+    Io  [I_0_ref]      =        inverse saturation current, depending on the temperature [A]  (see expression below).
+    Rs        =        Series resistance [ohm].
+    Rsh        =        Shunt resistance [ohm].
+    q        =        Charge of the electron  =  1.602·E-19 Coulomb
+    k        =        Bolzmann's constant =  1.381 E-23  J/K.
+    Gamma=          Diode quality factor, normally between 1 and 2
+    Ncs        =        Number of cells in series.
+    Tc        =        Effective temperature of the cells [Kelvin]
+    '''
+
+    # solving IoRef for Pmax
+    # PVSYST manual is not clear on method used by PVSYST i.e. Voc or Pmpp
+    # Checked empiricaly agains PVSYST and is the method used by CASSYS
+    I = m['Impp']  # solve IoRef for Pmax
+    V = m['Vmpp']  # solve IoRef for Pmax
+
+    Io = -((I+(V + I*m['Rserie'])/\
                 m['Rshunt'])-m['Isc'])/\
                 (np.exp(q*(V+I*m['Rserie'])/\
                 (m['CellsInS']*m['Gamma']*k*Tc))-1)
 
-    #solve IoRef for Pmax
-    I = m['Impp']
-    V = m['Vmpp']
-    IoRefPmp = -((I+(V + I*m['Rserie'])/\
-                m['Rshunt'])-m['Isc'])/\
-                (np.exp(q*(V+I*m['Rserie'])/\
-                (m['CellsInS']*m['Gamma']*k*Tc))-1)
 
-    # pvlib mpodule paramters
+    # mapping pvlib mpodule paramters names
     m['gamma_ref'] = m['Gamma']
     m['mu_gamma'] = m['muGamma']
     m['I_L_ref'] = m['Isc']
-    m['I_o_ref'] = IoRefPmp  # Using Pmp curve fitting, TODO; check CASSYS
+    m['I_o_ref'] = Io
     m['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
     m['R_sh_ref'] = m['Rshunt']
     m['R_sh_0'] = m['Rsh 0']
