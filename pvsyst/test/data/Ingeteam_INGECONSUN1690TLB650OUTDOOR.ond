@@ -1,0 +1,133 @@
+PVObject_=pvGInverter
+  Comment=Ingeteam	INGECON SUN 1690TL B650 OUTDOOR	Ingeteam Energy 07/2017
+  Version=6.53
+  Flags=$003C1062
+
+  PVObject_Commercial=pvCommercial
+    Comment=www.ingeteam.com
+    Flags=$0041
+    Manufacturer=Ingeteam
+    Model=INGECON SUN 1690TL B650 OUTDOOR
+    DataSource=Ingeteam Energy 07/2017
+    YearBeg=2015
+    YearEnd=
+    Width=2.820
+    Height=2.260
+    Depth=0.920
+    Weight=1710.00
+    NPieces=0
+    Currency=EUR
+    Remarks, Count=4
+      Str_1=Technology: TL, IGBT
+      Str_2=Protection: IP56
+      Str_3=Control: LCD 128X64 lit
+      Str_4
+    End of Remarks
+  End of PVObject pvCommercial
+  Transfo=Without
+
+  Converter=TConverter
+    PNomConv=1520.000
+    PMaxOUT=1689.000
+    VOutConv=650.0
+    VMppMin=939
+    VMPPMax=1300
+    Vmpp_PMax=939.0
+    VAbsMax=1500
+    PSeuil=2000.0
+    EfficMax=97.00
+    EfficEuro=95.00
+    FResNorm=3.00
+    ModeOper=MPPT
+    CompPMax=Lim
+    CompVMax=Lim
+    MonoTri=Tri
+    ModeAffEnum=Efficiencyf_PIn
+    PNomDC=1723.000
+    PMaxDC=2195.000
+    IDCMax=0.0
+    IMaxDC=1850.0
+    INomDC=1835.0
+    INomAC=1350.0
+    IMaxAC=1500.0
+    TPNom=50.0
+    TPMax=30.0
+    TPLim1=55.0
+    TPLimAbs=60.0
+    PLim1=1294.700
+    PLimAbs=1182.130
+    PInEffMax =857730.000
+    UnitAff=2
+    VNomEff=939.0,1061.0,1170.0,
+    EfficMaxV=98.810,98.580,98.440,
+    EfficEuroV=98.580,98.440,98.160,
+
+    ProfilPIOV1=TCubicProfile
+      NPtsMax=11
+      NPtsEff=8
+      LastCompile=$8089
+      Mode=1
+      Point_1=2000.0,0.0
+      Point_2=87520.0,84439.3
+      Point_3=172720.0,168868.3
+      Point_4=343090.0,337737.8
+      Point_5=513280.0,506607.4
+      Point_6=854520.0,844351.2
+      Point_7=1282560.0,1266528.0
+      Point_8=1712680.0,1688702.5
+      Point_9=0.0,0.0
+      Point_10=0.0,0.0
+      Point_11=0.0,0.0
+    End of TCubicProfile
+
+    ProfilPIOV2=TCubicProfile
+      NPtsMax=11
+      NPtsEff=8
+      LastCompile=$8089
+      Mode=1
+      Point_1=2000.0,0.0
+      Point_2=88160.0,84439.6
+      Point_3=173310.0,168873.3
+      Point_4=343860.0,337739.3
+      Point_5=515790.0,508001.6
+      Point_6=856510.0,844347.6
+      Point_7=1285160.0,1266525.2
+      Point_8=1715980.0,1688695.9
+      Point_9=0.0,0.0
+      Point_10=0.0,0.0
+      Point_11=0.0,0.0
+    End of TCubicProfile
+
+    ProfilPIOV3=TCubicProfile
+      NPtsMax=11
+      NPtsEff=8
+      LastCompile=$8089
+      Mode=1
+      Point_1=2000.0,0.0
+      Point_2=89060.0,84437.8
+      Point_3=174070.0,168865.3
+      Point_4=344670.0,337742.1
+      Point_5=515210.0,506606.0
+      Point_6=857730.0,844349.4
+      Point_7=1286600.0,1266529.0
+      Point_8=1716860.0,1688703.5
+      Point_9=0.0,0.0
+      Point_10=0.0,0.0
+      Point_11=0.0,0.0
+    End of TCubicProfile
+  End of TConverter
+  NbInputs=1
+  NbMPPT=1
+  TanPhiMin=-9.950
+  TanPhiMax=9.950
+  NbMSInterne=2
+  MasterSlave=No_M_S
+  IsolSurvey =Yes
+  DC_Switch=Yes
+  AC_Switch=Yes
+  DiscAdjust=Yes
+  MS_Thresh=0.8
+  Aux_Thresh=422000.00
+  Aux_Loss=1062.50
+  Night_Loss=90.00
+End of PVObject pvGInverter
