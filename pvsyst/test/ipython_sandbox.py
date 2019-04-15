@@ -11,6 +11,8 @@ import os, sys;
 
 import numpy as np
 import pandas as pd
+
+
 import pprint
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -24,6 +26,7 @@ import matplotlib.pyplot as plt
 
 from plotly import offline as py
 import plotly.tools as tls
+import plotly.graph_objs as go
 py.init_notebook_mode()
 
 
@@ -107,6 +110,31 @@ def _test_all():
     df['Pmpp'].plot()
     df['Voc'].plot()
 
+    # https://plot.ly/python/parallel-coordinates-plot/
+
+
+
+
+    data = [
+        go.Parcoords(
+            line = dict(color = df['Pmpp'],
+                       colorscale = 'Jet',
+                       showscale = True,
+                       reversescale = False,
+                       cmin = 0,
+                       cmax = 400),
+            dimensions = list([
+                dict(label = 'Pmpp', values = df['Pmpp']),
+                dict(label = 'Voc', values = df['Voc']),
+                dict(label = 'Isc', values = df['Isc']),
+                dict(label = 'Rserie', values = df['Rserie']),
+                dict(label = 'Rshunt', values = df['Rshunt'])
+
+            ])
+        )
+    ]
+
+    py.iplot(data)
 
 
 def _test_OND():
