@@ -1,13 +1,30 @@
+'''
+this is a ipython notebook style file used to debug code
+this is intented to be run with atom hydrogen
+
+'''
+
+
 %load_ext autoreload
 %autoreload 2
 import os, sys;
 
+import numpy as np
+import pandas as pd
 import pprint
 pp = pprint.PrettyPrinter(indent=2)
 
 
 import logging
 logger = logging.getLogger('pvsyst_io')
+
+#%matplotlib inline
+#%config InlineBackend.figure_format = 'svg'
+import matplotlib.pyplot as plt
+
+from plotly import offline as py
+import plotly.tools as tls
+py.init_notebook_mode()
 
 
 # import pvsyst module based on ipython running in /docs/
@@ -23,11 +40,10 @@ def test_io():
     print()
 
 
-
     pan_file = 'check_Canadian_CS3U_350P.PAN'
     pan_file = 'CS3U-365P_MIX_CSIHE_EXT_V6_70_1500V_2018Q2.PAN'
 
-    path = os.path.join(os.path.dirname(pvsyst.__file__), r'test/data/', pan_file)
+    path = os.path.join(os.path.dirname(pvsyst.__file__), r'test/data/PAN', pan_file)
 
 
 
@@ -35,8 +51,31 @@ def test_io():
 
     m = pvsyst.pan_to_module_param(path)
     # df = pd.DataFrame(columns=m.keys(),data = [m.values()])
+    m.keys()
+    '''
+    dict_keys(['manufacturer',
+    'module_name',
+     'Technol',
+     'CellsInS',
+      'CellsInP',
+       'GRef', 'TRef', 'Pmpp', 'Isc', 'Voc', 'Impp',
 
+        'Vmpp', 'mIsc_percent', 'mVoc_percent', 'mIsc',
+        'mVocSpec', 'mPmpp', 'Rshunt', 'Rsh 0', 'Rshexp',
+        'Rserie', 'Gamma', 'muGamma', 'IAM', 'gamma_ref',
+        'mu_gamma', 'I_L_ref', 'I_o_ref', 'EgRef', 'R_sh_ref',
+        'R_sh_0', 'R_s', 'R_sh_exp', 'cells_in_series', 'alpha_sc'])
+    '''
     pp.pprint(m)
+
+    data = {"x": m['IAM'][0],
+            "y": m['IAM'][1]}
+    py.iplot([data])
+
+    plt.plot(m['IAM'][0],m['IAM'][1])
+
+
+
 
     d = '60.0,0.97000'
     v = d.split(',')
@@ -53,6 +92,21 @@ def test_io():
     m['IAM'] = np.array([x,y])
     m['IAM']
     m['IAM'][1]
+
+def _test_all():
+    df = pd.DataFrame()
+    for root, dirs, files in os.walk("data"):
+        for file in files:
+            if file.lower().endswith(".pan"):
+
+                 pan = os.path.join(root, file)
+                 raw = pvsyst.pan_to_module_param(pan)
+                 raw['pan_file'] = pan
+                 df = df.append(raw,ignore_index=True)
+    len(df)
+    df['Pmpp'].plot()
+    df['Voc'].plot()
+
 
 
 def _test_OND():
