@@ -8,7 +8,7 @@ import re, sys, os
 import json, struct
 import numpy as np
 
-from core import text_to_dict
+from .core import text_to_dict
 
 import logging
 logging.addLevelName(5,"VERBOSE")
