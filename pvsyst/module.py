@@ -5,6 +5,7 @@
 import re, sys, os
 import json, struct
 import numpy as np
+import codecs
 
 from .core import text_to_dict
 
@@ -12,12 +13,12 @@ from .core import text_to_dict
 import logging
 logging.addLevelName(5,"VERBOSE")
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('pysyst.module')
+logger = logging.getLogger('pysyst')
 
 from pprint import pprint, pformat
 
 
-# read PAN file and return dict
+# read PAN file and return generic dict
 def pan_to_dict(path):
 
     # group keys of PVSYST 6.7.6
@@ -33,6 +34,9 @@ def pan_to_dict(path):
     #open file
     with open(path,'r') as file:
         raw = file.read()
+        if raw[:3] == "ï»¿": # this is utf-8-BOM
+            raw = raw[3:] #remove BOM
+
 
     #parse text file to nested dict based on pan_keys
     data = text_to_dict(raw, pan_sections)
@@ -43,15 +47,40 @@ def pan_to_dict(path):
     http://files.pvsyst.com/help/pvmodule_parametersummary.htm
     '''
     m = {}
-    m['manufacturer'] = (data['pvModule']['pvCommercial']['Manufacturer'])
+
+    m['Manufacturer'] = (data['pvModule']['pvCommercial']['Manufacturer'])
     m['Model'] = (data['pvModule']['pvCommercial']['Model'])
     m['Technol'] = (data['pvModule']['Technol'])
 
+
+    try:
+        m['DataSource'] = data['pvModule']['pvCommercial']['DataSource']
+        m['YearBeg'] = data['pvModule']['pvCommercial']['YearBeg']
+        m['Comment'] = data['pvModule']['pvCommercial']['Comment']
+        m['Width'] = float(data['pvModule']['pvCommercial']['Width'])
+        m['Height'] = float(data['pvModule']['pvCommercial']['Height'])
+        m['Depth'] = float(data['pvModule']['pvCommercial']['Depth'])
+        m['Weight'] = float(data['pvModule']['pvCommercial']['Weight'])
+    except KeyError:
+        pass
+
+    try:
+        m['RelEffic800'] = float(data['pvModule']['RelEffic800'])
+        m['RelEffic400'] = float(data['pvModule']['RelEffic400'])
+        m['RelEffic200'] = float(data['pvModule']['RelEffic200'])
+    except KeyError:
+        pass
+
     m['NCelS'] = int(data['pvModule']['NCelS'])
     m['NCelP'] = int(data['pvModule']['NCelP'])
+    m['NDiode'] = int(data['pvModule']['NDiode'])
+
     m['GRef'] = float(data['pvModule']['GRef'])
     m['TRef'] = float(data['pvModule']['TRef'])
     m['PNom'] = float(data['pvModule']['PNom'])
+    m['PNomTolLow'] = str(data['pvModule']['PNomTolLow'])
+    m['PNomTolUp'] = str(data['pvModule']['PNomTolUp'])
+
     m['Isc'] = float(data['pvModule']['Isc'])
     m['Voc'] = float(data['pvModule']['Voc'])
     m['Imp'] = float(data['pvModule']['Imp'])
@@ -63,6 +92,10 @@ def pan_to_dict(path):
     m['muISC'] = float(data['pvModule']['muISC'])
     m['muVocSpec'] = float(data['pvModule']['muVocSpec'])
 
+    m['mIsc_percent'] = (float(data['pvModule']['muISC'])/1000/m['Isc'])*100 #PAN stored in mA/C,convert to %/C
+    m['mVoc_percent'] = (float(data['pvModule']['muVocSpec'])/1000/m['Voc'])*100 # PAN stored in mV/C, convert to %/C
+
+
     m['muPmpReq'] = float(data['pvModule']['muPmpReq'])
     m['RShunt'] = float(data['pvModule']['RShunt'])
     m['Rp_0'] = float(data['pvModule']['Rp_0'])
@@ -71,136 +104,43 @@ def pan_to_dict(path):
     m['Gamma'] = float(data['pvModule']['Gamma'])
     m['muGamma'] = float(data['pvModule']['muGamma'])
 
-    # IAM profile to ndarray
-
-    # Options:
-    # FrontSurface=fsNormalGlass
-    # FrontSurface=fsARCoating
-    # if not defined FrontSurface key will not exist
-    # FrontSurface=fsPlastic
-    # FrontSurface=fsTextured
+    '''
+      PVObject_Commercial=pvCommercial
+        Comment=www.aeg-industrialsolar.de   (Germany) 
+        Flags=$0041
+        Manufacturer=AEG
+        Model=AS-M602G-285
+        DataSource=Manufacturer 2017
+        YearBeg=2017
+        Width=0.998
+        Height=1.664
+        Depth=0.040
+        Weight=25.800
+        NPieces=100
+        PriceDate=23/12/18 01:22
+        Remarks, Count=7
+          Str_1=Frame: Black
+          Str_2=Structure: 2.5 mm tempered glass x 2 (front glass and back
+          Str_3=glass)
+          Str_4=Connections: EVA, 2.5 mm tempered glass
+          Str_5=Double-glass solar module, PERC, IP67 junction box split-type,
+          Str_6=MC-4 compatible cables
+          Str_7
+        End of Remarks
+      End of PVObject pvCommercial
 
     '''
-    # if Ashre  PVObject_IAM=pvIAM / IAMMode=Ashrae
-      PVObject_IAM=pvIAM
-        Flags=$00
-        IAMMode=Ashrae
-        B0_IAM=0.075
-      End of PVObject pvIAM
-
-     # if user define FrontSurface key will not exist but  PVObject_IAM=pvIAM
-     PVObject_IAM=pvIAM
-        Flags=$00
-        IAMMode=UserProfile
-        IAMProfile=TCubicProfile
-          NPtsMax=9
-          NPtsEff=9
-          LastCompile=$B18D
-          Mode=3
-          Point_1=10.0,0.99900
-          Point_2=20.0,0.99900
-          Point_3=30.0,0.99500
-          Point_4=40.0,0.99200
-          Point_5=50.0,0.98600
-          Point_6=60.0,0.97000
-          Point_7=70.0,0.91700
-          Point_8=80.0,0.76300
-          Point_9=90.0,0.00000
-        End of TCubicProfile
-      End of PVObject pvIAM
-  '''
     try:
-        if data['pvModule']['pvIAM']['IAMMode'] == 'UserProfile':
-            points = int(data['pvModule']['pvIAM']['TCubicProfile']['NPtsEff'])
-            x = []
-            y = []
+        if data['pvModule']['pvCommercial']['Remarks']:
+            points = len(data['pvModule']['pvCommercial']['Remarks'])
+            comment = []
             for n in range(points):
-                v = data['pvModule']['pvIAM']['TCubicProfile']['Point_{}'.format(n+1)]
-                v = v.split(',')
-                x.append(float(v[0]))
-                m['Point_{}_AOI'.format(n+1)] = float(v[0])
-
-                y.append(float(v[1]))
-                m['Point_{}_EFF'.format(n+1)] = float(v[1])
-
-            # m['IAM'] = np.array([x,y])
+                v = data['pvModule']['pvCommercial']['Remarks']['Str_{}'.format(n+1)]
+                m['REM_Str_{}'.format(n+1)] = v # save the whole tuple for update script
 
     except Exception as e:
-        logger.warning('IAM profile not found')
+        logger.debug('No remarks found')
         logger.log(5, e)
-        m['IAM'] = None
-
-
-
-    '''
-    low irradiance
-    OperPoints, list of=6 tOperPoint
-        Point_1=False,800,25.0,0.00,0.00,0.000,0.000,0.00
-        Point_2=False,600,25.0,0.00,0.00,0.000,0.000,0.00
-        Point_3=False,400,25.0,0.00,0.00,0.000,0.000,0.00
-        Point_4=False,200,25.0,0.00,0.00,0.000,0.000,0.00
-        Point_5=False,200,25.0,0.00,0.00,0.000,0.000,0.00
-        Point_6=False,200,25.0,0.00,0.00,0.000,0.000,0.00
-      End of List OperPoints
-
-    '''
-
-    return m
-
-
-# read PAN file and return dict of module paramters for PVLIB
-def pan_to_module_param(path):
-
-    # group keys of PVSYST 6.7.6
-    # key is the start value to identify
-    # vaLue is the dict key to be used
-    pan_sections ={'PVObject_': 'pvModule',
-                'PVObject_Commercial': 'pvCommercial',
-                'PVObject_IAM': 'pvIAM',
-                'IAMProfile': 'TCubicProfile',
-                'Remarks, Count': 'Remarks',
-                'OperPoints, list of': 'tOperPoint'}
-
-    #open file
-    with open(path,'r') as file:
-        raw = file.read()
-
-    #parse text file to nested dict based on pan_keys
-    data = text_to_dict(raw, pan_sections)
-    logger.debug(pformat(data))
-
-    '''
-    List of PVSYST paramters and units:
-    http://files.pvsyst.com/help/pvmodule_parametersummary.htm
-    '''
-    m = {}
-    m['manufacturer'] = (data['pvModule']['pvCommercial']['Manufacturer'])
-    m['module_name'] = (data['pvModule']['pvCommercial']['Model'])
-    m['Technol'] = (data['pvModule']['Technol'])
-
-    m['CellsInS'] = int(data['pvModule']['NCelS'])
-    m['CellsInP'] = int(data['pvModule']['NCelP'])
-    m['GRef'] = float(data['pvModule']['GRef'])
-    m['TRef'] = float(data['pvModule']['TRef'])
-    m['Pmpp'] = float(data['pvModule']['PNom'])
-    m['Isc'] = float(data['pvModule']['Isc'])
-    m['Voc'] = float(data['pvModule']['Voc'])
-    m['Impp'] = float(data['pvModule']['Imp'])
-    m['Vmpp'] = float(data['pvModule']['Vmp'])
-
-    m['mIsc_percent'] = (float(data['pvModule']['muISC'])/1000/m['Isc'])*100 #PAN stored in mA/C,convert to %/C
-    m['mVoc_percent'] = (float(data['pvModule']['muVocSpec'])/1000/m['Voc'])*100 # PAN stored in mV/C, convert to %/C
-
-    m['mIsc'] = float(data['pvModule']['muISC'])/1000  # convert to A/C
-    m['mVocSpec'] = float(data['pvModule']['muVocSpec'])/1000  # convert to V/C
-
-    m['mPmpp'] = float(data['pvModule']['muPmpReq'])
-    m['Rshunt'] = float(data['pvModule']['RShunt'])
-    m['Rsh 0'] = float(data['pvModule']['Rp_0'])
-    m['Rshexp'] = float(data['pvModule']['Rp_Exp'])
-    m['Rserie'] = float(data['pvModule']['RSerie'])
-    m['Gamma'] = float(data['pvModule']['Gamma'])
-    m['muGamma'] = float(data['pvModule']['muGamma'])
 
     # IAM profile to ndarray
 
@@ -210,6 +150,7 @@ def pan_to_module_param(path):
     # if not defined FrontSurface key will not exist
     # FrontSurface=fsPlastic
     # FrontSurface=fsTextured
+
 
     '''
     # if Ashre  PVObject_IAM=pvIAM / IAMMode=Ashrae
@@ -247,14 +188,20 @@ def pan_to_module_param(path):
             y = []
             for n in range(points):
                 v = data['pvModule']['pvIAM']['TCubicProfile']['Point_{}'.format(n+1)]
+                m['IAM_Point_{}'.format(n+1)] = v # save the whole tuple for update script
+                # save the individual angle and eff value
                 v = v.split(',')
                 x.append(float(v[0]))
+                # m['IAM_Point_{}_AOI'.format(n+1)] = float(v[0])
+
                 y.append(float(v[1]))
+                # m['IAM_Point_{}_EFF'.format(n+1)] = float(v[1])
+
             m['IAM'] = np.array([x,y])
+
     except Exception as e:
-        logger.warning('IAM profile not found')
+        logger.debug('IAM profile not found')
         logger.log(5, e)
-        m['IAM'] = None
 
     '''
     low irradiance
@@ -266,16 +213,25 @@ def pan_to_module_param(path):
         Point_5=False,200,25.0,0.00,0.00,0.000,0.000,0.00
         Point_6=False,200,25.0,0.00,0.00,0.000,0.000,0.00
       End of List OperPoints
-
     '''
 
+    try:
+        if data['pvModule']['tOperPoint']:
+            points = len(data['pvModule']['tOperPoint'].keys())
+            s = []
 
-    #constants
-    k = 1.38064852e-23 #Boltzmann’s constant (J/K)
-    kelvin0 = 273.15
-    q = 1.60217662e-19 # charge of an electron (coulombs)
-    GRef = 1000
-    Tc = 25 + kelvin0 #Deg Kelvin
+            for n in range(points):
+                v = data['pvModule']['tOperPoint']['Point_{}'.format(n+1)]
+                m['OperPoint_Point_{}'.format(n+1)] = v # save the whole tuple for update script
+                # save the individual angle and eff value
+
+    except Exception as e:
+        logger.debug('Operating Point profile not found')
+        logger.log(5, e)
+
+
+
+
 
     '''
     solve IoRef for Pmp
@@ -303,29 +259,61 @@ def pan_to_module_param(path):
     Tc        =        Effective temperature of the cells [Kelvin]
     '''
 
+    #constants
+    k = 1.38064852e-23 #Boltzmann’s constant (J/K)
+    kelvin0 = 273.15
+    q = 1.60217662e-19 # charge of an electron (coulombs)
+    GRef = 1000
+    Tc = 25 + kelvin0 #Deg Kelvin
+    
     # solving IoRef for Pmax
     # PVSYST manual is not clear on method used by PVSYST i.e. Voc or Pmpp
     # Checked empiricaly agains PVSYST and is the method used by CASSYS
-    I = m['Impp']  # solve IoRef for Pmax
-    V = m['Vmpp']  # solve IoRef for Pmax
+    I = m['Imp']  # solve IoRef for Pmax
+    V = m['Vmp']  # solve IoRef for Pmax
 
-    Io = -((I+(V + I*m['Rserie'])/\
-                m['Rshunt'])-m['Isc'])/\
-                (np.exp(q*(V+I*m['Rserie'])/\
-                (m['CellsInS']*m['Gamma']*k*Tc))-1)
+    Io = -((I+(V + I*m['RSerie'])/\
+                m['RShunt'])-m['Isc'])/\
+                (np.exp(q*(V+I*m['RSerie'])/\
+                (m['NCelS']*m['Gamma']*k*Tc))-1)
+
+    m['I_o_ref'] = Io
+    m['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
+
+
+    return m
+
+
+# read PAN file and return dict of module paramters for PVLIB
+def pan_to_module_param(path):
+
+    m = pan_to_dict(path)
 
 
     # mapping pvlib mpodule paramters names
+    m['manufacturer'] = m['Manufacturer']
+    m['module_name'] = m['Model']
+    m['Pmpp'] = m['PNom']
+    m['Impp'] = m['Imp']
+    m['Vmpp'] = m['Vmp']
+
+    m['mIsc'] = m['muISC']/1000  # convert to A/C
+    m['mVocSpec'] = m['muVocSpec']/1000  # convert to V/C
+
+    m['mPmpp'] = m['muPmpReq']
+    m['Rshunt'] = m['RShunt']
+    m['Rsh 0'] = m['Rp_0']
+    m['Rshexp'] = m['Rp_Exp']
+    m['Rserie'] = m['RSerie']
+
     m['gamma_ref'] = m['Gamma']
     m['mu_gamma'] = m['muGamma']
     m['I_L_ref'] = m['Isc']
-    m['I_o_ref'] = Io
-    m['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
     m['R_sh_ref'] = m['Rshunt']
     m['R_sh_0'] = m['Rsh 0']
     m['R_s'] = m['Rserie']
     m['R_sh_exp'] = m['Rshexp']
-    m['cells_in_series'] = m['CellsInS']
+    m['cells_in_series'] = m['NCelS']
     m['alpha_sc'] = m['mIsc']  # A/C
 
     return m

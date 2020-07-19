@@ -13,7 +13,7 @@ from .core import text_to_dict
 import logging
 logging.addLevelName(5,"VERBOSE")
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('pvsyst.core')
+logger = logging.getLogger('pvsyst')
 
 from pprint import pprint, pformat
 
@@ -36,6 +36,8 @@ def ond_to_inverter_param(path):
     #open file
     with open(path,'r') as file:
         raw = file.read()
+        if raw[:3] == "ï»¿": # this is utf-8-BOM
+            raw = raw[3:] #remove BOM
 
     #parse text file to nested dict based on pan_keys
     data = text_to_dict(raw, ond_sections)

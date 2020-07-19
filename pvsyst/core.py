@@ -8,7 +8,7 @@ import re, sys, os
 import logging
 logging.addLevelName(5,"VERBOSE")
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('pvsyst.core')
+logger = logging.getLogger('pvsyst')
 
 #parse indented text and yield level, parent and value
 def _parse_tree(lines):

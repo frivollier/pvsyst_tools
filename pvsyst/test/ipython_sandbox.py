@@ -18,7 +18,7 @@ pp = pprint.PrettyPrinter(indent=2)
 
 
 import logging
-logger = logging.getLogger('pvsyst_io')
+logger = logging.getLogger('pvsyst')
 
 #%matplotlib inline
 #%config InlineBackend.figure_format = 'svg'
@@ -38,17 +38,14 @@ sys.path.append(os.path.dirname(os.path.dirname(cwd)))  # append to path to be a
 import pvsyst
 print('pvsyst module path: {}'.format(pvsyst.__file__))
 
-
 def test_io():
     print()
 
 
-    pan_file = 'check_Canadian_CS3U_350P.PAN'
-    pan_file = 'CS3U-365P_MIX_CSIHE_EXT_V6_70_1500V_2018Q2.PAN'
+    pan_file = 'CS3W-440MB-AG_MIX_CSI_PRE_V6_84_1500V_2019 UTF-8-BOM.PAN'
+    pan_file = 'CS3W-405PB-AG_MIX_CSIHE_EXT_V6_79_1500V_2019Q2.PAN'
 
     path = os.path.join(os.path.dirname(pvsyst.__file__), r'test/data/PAN', pan_file)
-
-
 
     logger.setLevel(5)  # 5 for Verbose 10 for Debug
 
@@ -71,8 +68,7 @@ def test_io():
     '''
     pp.pprint(m)
 
-    data = {"x": m['IAM'][0],
-            "y": m['IAM'][1]}
+    data = {"x": m['IAM'][0],"y": m['IAM'][1]}
     py.iplot([data])
 
     plt.plot(m['IAM'][0],m['IAM'][1])
