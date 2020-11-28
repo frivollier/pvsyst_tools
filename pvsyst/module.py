@@ -9,7 +9,6 @@ import codecs
 
 from .core import text_to_dict
 
-
 import logging
 logging.addLevelName(5,"VERBOSE")
 logging.basicConfig(level=logging.INFO)
@@ -110,7 +109,7 @@ def pan_to_dict(path):
     R_sh_zero = m['Rp_0']
     R_sh_exp = m['Rp_Exp']
     m['RShunt_1000'] = (R_sh_ref + (R_sh_zero - R_sh_ref) * np.exp(-R_sh_exp * (G / 1000)))
-    
+
     m['RSerie'] = float(data['pvModule']['RSerie'])
     m['Gamma'] = float(data['pvModule']['Gamma'])
     m['muGamma'] = float(data['pvModule']['muGamma'])
@@ -240,10 +239,6 @@ def pan_to_dict(path):
         logger.debug('Operating Point profile not found')
         logger.log(5, e)
 
-
-
-
-
     '''
     solve IoRef for Pmp
     Using Voc to solve reverse saturation current IoRef based on
@@ -291,7 +286,6 @@ def pan_to_dict(path):
     m['I_o_ref'] = Io
     m['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
 
-
     return m
 
 
@@ -299,7 +293,6 @@ def pan_to_dict(path):
 def pan_to_module_param(path):
 
     m = pan_to_dict(path)
-
 
     # mapping pvlib mpodule paramters names
     m['manufacturer'] = m['Manufacturer']
@@ -320,7 +313,7 @@ def pan_to_module_param(path):
     m['gamma_ref'] = m['Gamma']
     m['mu_gamma'] = m['muGamma']
     m['I_L_ref'] = m['Isc']
-    m['R_sh_ref'] = m['Rshunt']
+    m['R_sh_ref'] = m['RShunt_1000']
     m['R_sh_0'] = m['Rsh 0']
     m['R_s'] = m['Rserie']
     m['R_sh_exp'] = m['Rshexp']
