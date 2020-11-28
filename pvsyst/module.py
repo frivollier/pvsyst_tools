@@ -32,11 +32,10 @@ def pan_to_dict(path):
                 'OperPoints, list of': 'tOperPoint'}
 
     #open file
-    with open(path,'r') as file:
+    with open(path, mode='r', encoding='utf-8-sig') as file: # utf-8-sig to fix u'\ufeff' BOM issue on certain OS
         raw = file.read()
         if raw[:3] == "ï»¿": # this is utf-8-BOM
             raw = raw[3:] #remove BOM
-
 
     #parse text file to nested dict based on pan_keys
     data = text_to_dict(raw, pan_sections)
@@ -97,9 +96,21 @@ def pan_to_dict(path):
 
 
     m['muPmpReq'] = float(data['pvModule']['muPmpReq'])
+
+    # RShunt is the RShunt value from PVSYST PAN Files
+    # This can be a poor estimate of shunt resistance at G if Rexp is not 5.5
     m['RShunt'] = float(data['pvModule']['RShunt'])
     m['Rp_0'] = float(data['pvModule']['Rp_0'])
     m['Rp_Exp'] = float(data['pvModule']['Rp_Exp'])
+
+    # Recompute RShunt at 1000 W.m2
+    # discussion on pvlib https://github.com/pvlib/pvlib-python/issues/1094
+    G = 1000
+    R_sh_ref = m['RShunt']
+    R_sh_zero = m['Rp_0']
+    R_sh_exp = m['Rp_Exp']
+    m['RShunt_1000'] = (R_sh_ref + (R_sh_zero - R_sh_ref) * np.exp(-R_sh_exp * (G / 1000)))
+    
     m['RSerie'] = float(data['pvModule']['RSerie'])
     m['Gamma'] = float(data['pvModule']['Gamma'])
     m['muGamma'] = float(data['pvModule']['muGamma'])
@@ -265,7 +276,7 @@ def pan_to_dict(path):
     q = 1.60217662e-19 # charge of an electron (coulombs)
     GRef = 1000
     Tc = 25 + kelvin0 #Deg Kelvin
-    
+
     # solving IoRef for Pmax
     # PVSYST manual is not clear on method used by PVSYST i.e. Voc or Pmpp
     # Checked empiricaly agains PVSYST and is the method used by CASSYS

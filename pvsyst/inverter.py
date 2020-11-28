@@ -34,7 +34,7 @@ def ond_to_inverter_param(path):
                 'ProfilPIOV3': 'ProfilPIOV3'}
 
     #open file
-    with open(path,'r') as file:
+    with open(path, mode='r', encoding='utf-8-sig') as file: # utf-8-sig to fix u'\ufeff' BOM issue on certain OS
         raw = file.read()
         if raw[:3] == "ï»¿": # this is utf-8-BOM
             raw = raw[3:] #remove BOM
