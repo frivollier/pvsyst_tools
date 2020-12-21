@@ -104,12 +104,7 @@ def pan_to_dict(path):
 
     # Recompute RShunt at 1000 W.m2
     # discussion on pvlib https://github.com/pvlib/pvlib-python/issues/1094
-    G = 1000
-    R_sh_ref = m['RShunt']
-    R_sh_zero = m['Rp_0']
-    R_sh_exp = m['Rp_Exp']
-    m['RShunt_1000'] = (R_sh_ref + (R_sh_zero - R_sh_ref) * np.exp(-R_sh_exp * (G / 1000)))
-
+    m['RShunt_stc'] = m['RShunt'] + (m['Rp_0'] - m['RShunt']) * np.exp(-m['Rp_Exp']* (1000/m['GRef']))
     m['RSerie'] = float(data['pvModule']['RSerie'])
     m['Gamma'] = float(data['pvModule']['Gamma'])
     m['muGamma'] = float(data['pvModule']['muGamma'])
@@ -284,6 +279,41 @@ def pan_to_dict(path):
                 (m['NCelS']*m['Gamma']*k*Tc))-1)
 
     m['I_o_ref'] = Io
+    # TODO
+
+    '''
+    # adjust based of m['Technol']
+    # from https://en.wikipedia.org/wiki/Multi-junction_solar_cell
+    c-Si	1.12
+    InGaP	1.86
+    GaAs	1.4
+    Ge	0.65
+    InGaAs	1.2
+
+    # from PVSYST docs
+    where	EGap = Gap's energy of the material (:
+        1.12  eV  for cristalline Si,
+        1.03 eV  for CIS,
+        1.7 eV for amorphous silicon,
+        1.5 eV for CdTe
+
+    Technol options in PVSYST:
+    Si-mono
+    Si-poly
+    S-EFG
+    a-Si:H single
+    a-Si:H tandem
+    a-Si:H tripple
+    uCSI-aSi:H
+    CdTe
+    CIS
+    CSG
+    HIT
+    GaAs
+    GaInP2/GaAs/Ge
+    Not Specified
+
+    '''
     m['EgRef'] = 1.121  # The energy bandgap at reference temperature in units of eV
 
     return m
@@ -310,14 +340,14 @@ def pan_to_module_param(path):
     m['Rshexp'] = m['Rp_Exp']
     m['Rserie'] = m['RSerie']
 
-    m['gamma_ref'] = m['Gamma']
-    m['mu_gamma'] = m['muGamma']
-    m['I_L_ref'] = m['Isc']
-    m['R_sh_ref'] = m['RShunt_1000']
-    m['R_sh_0'] = m['Rsh 0']
-    m['R_s'] = m['Rserie']
-    m['R_sh_exp'] = m['Rshexp']
-    m['cells_in_series'] = m['NCelS']
-    m['alpha_sc'] = m['mIsc']  # A/C
+    m['gamma_ref'] = m['Gamma'] #The diode ideality factor
+    m['mu_gamma'] = m['muGamma'] #The temperature coefficient for the diode ideality factor, 1/K
+    m['I_L_ref'] = m['Isc'] #The light-generated current (or photocurrent) at reference conditions, in amperes.
+    m['R_sh_ref'] = m['RShunt_stc'] #The shunt resistance at reference conditions, in ohms.
+    m['R_sh_0'] = m['Rsh 0'] #The shunt resistance at zero irradiance conditions, in ohms.
+    m['R_s'] = m['Rserie'] #The series resistance at reference conditions, in ohms.
+    m['R_sh_exp'] = m['Rshexp'] #The exponent in the equation for shunt resistance, unitless. Defaults to 5.5.
+    m['cells_in_series'] = m['NCelS'] #The number of cells connected in series.
+    m['alpha_sc'] = m['mIsc']  #The short-circuit current temperature coefficient of the module in units of A/C.
 
     return m
